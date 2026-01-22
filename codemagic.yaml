@@ -3,11 +3,11 @@ workflows:
     name: SweetData VPN – Android Release
     max_build_duration: 60
 
-    # ✅ MUST BE LINUX FOR WIREGUARD
-    environment:
-      os: linux
-      java: 17
+    # ✅ LINUX BUILDER (MANDATORY)
+    instance_type: linux_x2
 
+    environment:
+      java: 17
       groups:
         - Release_keystore
 
@@ -25,14 +25,12 @@ workflows:
           echo "android.useAndroidX=true" >> gradle.properties
           echo "android.enableJetifier=true" >> gradle.properties
 
-      # ✅ Decode keystore safely
       - name: Decode keystore
         script: |
           mkdir -p $HOME/keystores
           echo "$KEYSTORE_BASE64" | base64 --decode > $HOME/keystores/release.jks
           ls -l $HOME/keystores
 
-      # ✅ BUILD SIGNED APK
       - name: Build Release APK
         script: |
           ./gradlew assembleRelease \
@@ -41,7 +39,6 @@ workflows:
             -Pandroid.injected.signing.key.alias=$KEY_ALIAS \
             -Pandroid.injected.signing.key.password=$KEY_PASSWORD
 
-      # ✅ BUILD SIGNED AAB
       - name: Build Release AAB
         script: |
           ./gradlew bundleRelease \
