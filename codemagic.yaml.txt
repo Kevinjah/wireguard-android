@@ -1,0 +1,59 @@
+workflows:
+  android-release:
+    name: SweetData VPN – Android Release
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+
+    environment:
+      java: 17
+      groups:
+        - sweetdata-release.
+
+    scripts:
+      - name: Make gradlew executable
+        script: chmod +x gradlew
+
+      - name: Set up local.properties
+        script: echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+
+      - name: Enable AndroidX
+        script: |
+          echo "android.useAndroidX=true" >> gradle.properties
+          echo "android.enableJetifier=true" >> gradle.properties
+
+      # ✅ Decode keystore OUTSIDE project (required)
+      - name: Decode keystore
+        script: |
+          mkdir -p $HOME/keystores
+          echo "$KEYSTORE_BASE64" | base64 --decode > $HOME/keystores/release.jks
+          ls -l $HOME/keystores
+
+      # ✅ BUILD SIGNED RELEASE APK
+      - name: Build Release APK
+        script: |
+          ./gradlew assembleRelease \
+            -Pandroid.injected.signing.store.file=$HOME/keystores/release.jks \
+            -Pandroid.injected.signing.store.password=$KEYSTORE_PASSWORD \
+            -Pandroid.injected.signing.key.alias=$KEY_ALIAS \
+            -Pandroid.injected.signing.key.password=$KEY_PASSWORD
+
+      # ✅ BUILD SIGNED RELEASE AAB (Play Store)
+      - name: Build Release AAB
+        script: |
+          ./gradlew bundleRelease \
+            -Pandroid.injected.signing.store.file=$HOME/keystores/release.jks \
+            -Pandroid.injected.signing.store.password=$KEYSTORE_PASSWORD \
+            -Pandroid.injected.signing.key.alias=$KEY_ALIAS \
+            -Pandroid.injected.signing.key.password=$KEY_PASSWORD
+
+    artifacts:
+      - app/build/outputs/**/*.apk
+      - app/build/outputs/**/*.aab
+
+    publishing:
+      email:
+        recipients:
+          - kevinjah08@gmail.com
+        notify:
+          success: true
+          failure: true
