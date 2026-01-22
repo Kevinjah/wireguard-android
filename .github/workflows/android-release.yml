@@ -29,8 +29,8 @@ jobs:
       # 3️⃣ Install required Linux tools
       - name: Install system dependencies
         run: |
-          sudo apt update
-          sudo apt install -y \
+          sudo apt-get update
+          sudo apt-get install -y \
             unzip \
             wget \
             curl \
@@ -41,7 +41,11 @@ jobs:
             pkg-config \
             libc6-dev \
             libstdc++6 \
-            flock
+            util-linux \
+            golang \
+            ninja-build \
+            cmake \
+            build-essential
 
       # 4️⃣ Set up Android SDK
       - name: Set up Android SDK
