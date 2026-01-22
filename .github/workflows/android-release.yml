@@ -1,0 +1,98 @@
+name: SweetData VPN Android Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Build WireGuard Android
+    runs-on: ubuntu-22.04
+
+    env:
+      JAVA_HOME: /usr/lib/jvm/temurin-17-jdk-amd64
+
+    steps:
+      # 1️⃣ Checkout code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2️⃣ Set up Java 17
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # 3️⃣ Install required Linux tools
+      - name: Install system dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            unzip \
+            wget \
+            curl \
+            git \
+            make \
+            gcc \
+            g++ \
+            pkg-config \
+            libc6-dev \
+            libstdc++6 \
+            flock
+
+      # 4️⃣ Set up Android SDK
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      # 5️⃣ Install Android NDK & CMake
+      - name: Install NDK and CMake
+        run: |
+          sdkmanager "ndk;27.0.12077973" "cmake;3.22.1"
+          echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/27.0.12077973" >> $GITHUB_ENV
+
+      # 6️⃣ Make gradlew executable
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      # 7️⃣ Create local.properties
+      - name: Create local.properties
+        run: |
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+          echo "ndk.dir=$ANDROID_SDK_ROOT/ndk/27.0.12077973" >> local.properties
+
+      # 8️⃣ Decode signing keystore
+      - name: Decode keystore
+        run: |
+          mkdir -p $HOME/keystore
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > $HOME/keystore/release.jks
+          ls -l $HOME/keystore
+
+      # 9️⃣ Build SIGNED release APK
+      - name: Build Release APK
+        run: |
+          ./gradlew assembleRelease \
+            -Pandroid.injected.signing.store.file=$HOME/keystore/release.jks \
+            -Pandroid.injected.signing.store.password=${{ secrets.KEYSTORE_PASSWORD }} \
+            -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
+            -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}
+
+      # 🔟 Build SIGNED release AAB
+      - name: Build Release AAB
+        run: |
+          ./gradlew bundleRelease \
+            -Pandroid.injected.signing.store.file=$HOME/keystore/release.jks \
+            -Pandroid.injected.signing.store.password=${{ secrets.KEYSTORE_PASSWORD }} \
+            -Pandroid.injected.signing.key.alias=${{ secrets.KEY_ALIAS }} \
+            -Pandroid.injected.signing.key.password=${{ secrets.KEY_PASSWORD }}
+
+      # 1️⃣1️⃣ Upload artifacts
+      - name: Upload APK & AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: SweetDataVPN-Release
+          path: |
+            app/build/outputs/**/*.apk
+            app/build/outputs/**/*.aab
